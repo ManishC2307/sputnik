@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sputnik TinyML & Offline AI Triage Companion</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #121212; color: #fff; padding: 20px; text-align: center; }
+        .card { background: #1e1e1e; padding: 20px; border-radius: 12px; margin-top: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        button { background: #007bff; color: white; border: none; padding: 12px 20px; font-size: 15px; border-radius: 8px; margin: 8px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        #result { margin-top: 20px; font-weight: bold; font-size: 18px; padding: 15px; border-radius: 8px; }
+        
+        .alert-0 { background: #28a745; color: white; }
+        .alert-1 { background: #dc3545; color: white; }
+        .alert-2 { background: #17a2b8; color: white; }
+        .alert-3 { background: #ffc107; color: black; }
+
+        /* Chat UI Styles */
+        #chat-box { height: 120px; overflow-y: auto; background: #2a2a2a; border-radius: 8px; padding: 10px; margin-bottom: 10px; text-align: left; font-size: 14px; }
+        input[type="text"] { width: 70%; padding: 10px; border-radius: 6px; border: 1px solid #444; background: #222; color: white; }
+    </style>
+</head>
+<body>
+
+    <h2>Sputnik Edge AI & Medical Triage Platform</h2>
+
+    <!-- SECTION 1: TinyML Hazard Monitor -->
+    <div class="card">
+        <h3>1. TinyML Early Warning Ingestion</h3>
+        <p>Tap a test condition to run live edge inference:</p>
+        <button onclick="testHazard([25.0, 45.0, 1015.0, 65.0, 72.0, 98.0, 15.0])">Simulate Normal Weather</button>
+        <button onclick="testHazard([43.0, 80.0, 1010.0, 18.0, 115.0, 95.0, 24.0])">Simulate Heatwave Alert</button>
+        <button onclick="testHazard([24.0, 95.0, 975.0, 50.0, 80.0, 98.0, 16.0])">Simulate Storm / Flood</button>
+        <button onclick="testHazard([28.0, 55.0, 1012.0, 25.0, 95.0, 90.0, 28.0])">Simulate Pollution Spike</button>
+        
+        <div id="result" style="display:none;"></div>
+    </div>
+
+    <!-- SECTION 2: Offline Medical Assistant -->
+    <div class="card">
+        <h3>2. Offline Medical Triage Assistant (Llama-3.2 1B)</h3>
+        <div id="chat-box"><i>Ask an emergency first-aid question (100% Offline)...</i></div>
+        <input type="text" id="user-input" placeholder="e.g., How to treat severe dehydration?">
+        <button onclick="sendChatMessage()">Send Prompt</button>
+    </div>
+
+    <script>
+        const BASE_URL = 'http://localhost:5000';
+
+        // 1. TinyML Prediction Handler
+        async function testHazard(telemetryData) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = '';
+            resultDiv.innerText = "Analyzing telemetry via TFLite Interpreter...";
+
+            try {
+                const response = await fetch(`${BASE_URL}/predict`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ telemetry: telemetryData })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    resultDiv.className = `alert-${data.hazard_class}`;
+                    resultDiv.innerHTML = `
+                        <strong>Hazard Class:</strong> ${data.hazard_class}<br>
+                        <strong>Confidence:</strong> ${data.confidence}<br><br>
+                        ${data.warning_message}
+                    `;
+                }
+            } catch (err) {
+                resultDiv.innerText = "Cannot connect to server. Is app.py running?";
+            }
+        }
+
+        // 2. Offline LLM Chat Handler
+        async function sendChatMessage() {
+            const inputField = document.getElementById('user-input');
+            const chatBox = document.getElementById('chat-box');
+            const query = inputField.value.trim();
+
+            if (!query) return;
+
+            chatBox.innerHTML += `<div><strong>You:</strong> ${query}</div>`;
+            inputField.value = '';
+            chatBox.scrollTop = chatBox.scrollHeight;
+
+            try {
+                const response = await fetch(`${BASE_URL}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: query })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    chatBox.innerHTML += `<div style="color: #4da6ff;"><strong>Sputnik AI:</strong> ${data.reply}</div>`;
+                } else {
+                    chatBox.innerHTML += `<div style="color: red;"><strong>Error:</strong> ${data.error}</div>`;
+                }
+            } catch (err) {
+                chatBox.innerHTML += `<div style="color: red;"><strong>Connection Failed!</strong> Check app.py & Ollama.</div>`;
+            }
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    </script>
+</body>
+</html>
